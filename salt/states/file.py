@@ -4495,6 +4495,7 @@ def append(name,
            source_hashes=None,
            defaults=None,
            context=None,
+           check_cmd=None,
            ignore_whitespace=True):
     '''
     Ensure that some text appears at the end of a file.
@@ -4578,7 +4579,25 @@ def append(name,
 
     context
         Overrides default context variables passed to the template.
+        
+    check_cmd
+        .. versionadded:: 2017
 
+        The specified command will be run with an appended argument of
+        the file containing the new managed contents. 
+        
+        For example, the following could be used to verify a sudoers file:
+
+        .. code-block:: yaml
+
+            /etc/sudoers.d/users:
+              file.append:
+                - text: "{{ username }} ALL=(ALL) NOPASSWD: ALL"
+                - check_cmd: /usr/sbin/visudo -c -f
+
+        **NOTE**: This ``check_cmd`` functions differently than the requisite
+        ``check_cmd``.
+        
     ignore_whitespace
         .. versionadded:: 2015.8.4
 
@@ -4744,6 +4763,17 @@ def append(name,
             ret['changes']['diff'] = (
                 '\n'.join(difflib.unified_diff(slines, nlines)))
 
+    if (ret['changes']['diff']) and (check_cmd is not None):
+
+        check_cmd_opts = {}
+        if 'shell' in __grains__:
+            check_cmd_opts['shell'] = __grains__['shell']
+
+        cret = mod_run_check_cmd(check_cmd, name, **check_cmd_opts)
+        if isinstance(cret, dict):
+               ret.update(cret)
+               return ret
+            
     ret['result'] = True
 
     return ret
